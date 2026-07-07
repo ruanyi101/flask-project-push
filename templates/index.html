@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+    {% if user %}
+        <h2>欢迎回来，{{ user['username'] }}！</h2>
+        <div class="info-section">
+            <h3>👤 个人资料</h3>
+            <ul class="info-list">
+                <li><span class="info-label">用户名</span><span class="info-value">{{ user['username'] }}</span></li>
+                <li><span class="info-label">邮箱</span><span class="info-value">{{ user['email'] }}</span></li>
+                <li><span class="info-label">手机</span><span class="info-value">{{ user['phone'] }}</span></li>
+                <li>
+                    <span class="info-label">角色</span>
+                    <span class="info-value">
+                        <span class="role-badge {% if user['role'] == 'admin' %}role-admin{% else %}role-user{% endif %}">
+                            {{ user['role'] }}
+                        </span>
+                    </span>
+                </li>
+                <li><span class="info-label">余额</span><span class="info-value">{{ user['balance'] }} 元</span></li>
+            </ul>
+        </div>
+
+        <div class="action-bar">
+            <a href="/logout" class="btn btn-danger">退出登录</a>
+        </div>
+
+        <div class="session-info">
+            <h4>🔐 当前会话安全状态</h4>
+            <ul class="security-checklist">
+                <li class="check-ok">✅ 密码已哈希存储（pbkdf2:sha256）</li>
+                <li class="check-ok">✅ Session 使用强随机密钥签名</li>
+                <li class="check-ok">✅ CSRF Token 防护已启用</li>
+                <li class="check-ok">✅ 30 分钟无操作自动登出</li>
+                <li class="check-ok">✅ 安全响应头已配置</li>
+            </ul>
+        </div>
+    {% else %}
+        <div class="empty-state">
+            <h2>请先登录</h2>
+            <p class="muted">您尚未登录，请先登录以查看用户信息。</p>
+            <a href="/login" class="btn btn-primary">前往登录</a>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
