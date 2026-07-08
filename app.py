@@ -17,6 +17,7 @@
 import os
 import re
 import secrets
+import sqlite3
 import time
 from datetime import timedelta
 
@@ -48,6 +49,36 @@ app.config.update(
     #       开发环境 HTTP 时应为 False，否则 cookie 无法传递
     SESSION_REFRESH_EACH_REQUEST=True,  # 每次请求刷新 cookie 有效期
 )
+
+# =============================================================================
+# 数据库初始化（SQLite + f-string 拼接 — 教学演示故意保留的 SQL 注入点）
+# =============================================================================
+
+def init_db():
+    """初始化 SQLite 数据库，创建 users 表并插入默认用户"""
+    os.makedirs("data", exist_ok=True)
+    conn = sqlite3.connect("data/users.db")
+    c = conn.cursor()
+    c.execute("""CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL,
+        email TEXT,
+        phone TEXT
+    )""")
+
+    # 插入默认用户 — 使用参数化查询
+    default_users = [
+        ("admin", "admin123", "admin@example.com", "13800138000"),
+        ("alice", "alice2025", "alice@example.com", "13900139001"),
+    ]
+    for u, p, e, ph in default_users:
+        sql = "INSERT OR IGNORE INTO users (username, password, email, phone) VALUES (?, ?, ?, ?)"
+        c.execute(sql, (u, p, e, ph))
+
+    conn.commit()
+    conn.close()
+    print("  ✅ 数据库初始化完成 (data/users.db)")
 
 # =============================================================================
 # 用户数据库（密码已哈希）
@@ -115,8 +146,8 @@ app.jinja_env.globals["csrf_token"] = generate_csrf_token
 def csrf_protect():
     """拦截所有 POST/PUT/DELETE 请求，校验 CSRF token（login 端点豁免）"""
     if request.method in ("POST", "PUT", "DELETE"):
-        if request.endpoint in ("login", "static"):
-            return  # login 自己有 CSRF 字段校验
+        if request.endpoint in ("login", "register", "static"):
+            return  # login / register 端点豁免（教学演示需要）
         token = session.get("csrf_token")
         form_token = request.form.get("csrf_token", "")
         if not token or not secrets.compare_digest(str(token), str(form_token)):
@@ -172,9 +203,33 @@ def index():
     """首页：已登录显示用户信息，未登录提示登录"""
     username = session.get("username")
     user = None
+    search_results = None
+    search_keyword = None
+
     if username and username in USERS:
         user = safe_user_info(USERS[username])
-    return render_template("index.html", user=user)
+
+    # 从 URL 参数获取搜索结果（使用参数化查询防御 SQL 注入）
+    search_keyword = request.args.get("keyword", "")
+    if search_keyword:
+        conn = sqlite3.connect("data/users.db")
+        c = conn.cursor()
+
+        # 使用参数化查询，? 占位符，LIKE 的 % 加在参数中
+        sql = "SELECT id, username, email, phone FROM users WHERE username LIKE ? OR email LIKE ?"
+        like_param = f"%{search_keyword}%"
+        print(f"  🔍 [搜索] 关键词: {search_keyword}")
+        print(f"  🔍 [搜索 SQL] {sql} 参数: ('{like_param}', '{like_param}')")
+
+        try:
+            c.execute(sql, (like_param, like_param))
+            search_results = c.fetchall()
+        except Exception as e:
+            print(f"  ❌ SQL 错误: {e}")
+            search_results = []
+        conn.close()
+
+    return render_template("index.html", user=user, search_results=search_results, search_keyword=search_keyword)
 
 # =============================================================================
 # 路由 — 登录
@@ -220,7 +275,57 @@ def login():
             # [FIX-006] 用户枚举防护 • 统一错误消息
             error = "用户名或密码错误，请重试"
 
-    return render_template("login.html", error=error)
+    # 获取注册成功跳转过来的消息
+    msg = request.args.get("msg", "")
+    return render_template("login.html", error=error, msg=msg)
+
+# =============================================================================
+# 路由 — 注册（f-string 拼接 SQL — 教学用 SQL 注入点）
+# =============================================================================
+
+
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    error = None
+
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+        email = request.form.get("email", "").strip()
+        phone = request.form.get("phone", "").strip()
+
+        # 使用参数化查询插入数据库（防御 SQL 注入）
+        conn = sqlite3.connect("data/users.db")
+        c = conn.cursor()
+
+        sql = "INSERT INTO users (username, password, email, phone) VALUES (?, ?, ?, ?)"
+        print(f"  📝 [注册] 用户名: {username}, 邮箱: {email}, 手机: {phone}")
+        print(f"  📝 [注册 SQL] {sql}")
+
+        try:
+            c.execute(sql, (username, password, email, phone))
+            conn.commit()
+            conn.close()
+            return redirect("/login?msg=注册成功，请登录")
+        except sqlite3.IntegrityError:
+            error = "用户名已存在，请重新输入"
+            conn.close()
+        except Exception as e:
+            error = f"注册失败: {e}"
+            print(f"  ❌ 注册错误: {e}")
+            conn.close()
+
+    return render_template("register.html", error=error)
+
+# =============================================================================
+# 路由 — 搜索（跳转到首页并传递关键词）
+# =============================================================================
+
+
+@app.route("/search")
+def search():
+    keyword = request.args.get("keyword", "")
+    return redirect(f"/?keyword={keyword}")
 
 # =============================================================================
 # 路由 — 登出
@@ -343,6 +448,9 @@ def server_error(e):
 # 启动入口
 # =============================================================================
 if __name__ == "__main__":
+    # 初始化数据库
+    init_db()
+
     debug_mode = os.environ.get("FLASK_DEBUG", "0") == "1"
     # 生产环境强制 debug=False
     if os.environ.get("HTTPS_ENABLED", "0") == "1":
