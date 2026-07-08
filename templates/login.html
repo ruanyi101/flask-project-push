@@ -2,14 +2,57 @@
 {% block content %}
 <div class="card login-card">
     <h2>用户登录</h2>
-    <div class="security-badge"><span>🔒 CSRF 防护 · 速率限制 · 输入验证</span></div>
-    {% if error %}<div class="error-msg">{{ error }}</div>{% endif %}
+
+    <div class="security-badge">
+        <span>🔒 CSRF 防护 · 速率限制 · 输入验证</span>
+    </div>
+
+    {% if error %}
+        <div class="error-msg">{{ error }}</div>
+    {% endif %}
+    {% if msg %}
+        <div class="success-msg">{{ msg }}</div>
+    {% endif %}
+
     <form method="post" action="/login">
+        <!-- CSRF 令牌（[FIX-007] 跨站请求伪造防护） -->
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <div class="form-group"><label for="username">用户名</label><input type="text" id="username" name="username" placeholder="3~20位字母、数字或汉字" minlength="3" maxlength="20" autocomplete="username" required></div>
-        <div class="form-group"><label for="password">密码</label><input type="password" id="password" name="password" placeholder="6位以上，须包含字母和数字" minlength="6" maxlength="128" autocomplete="current-password" required></div>
+
+        <div class="form-group">
+            <label for="username">用户名</label>
+            <input
+                type="text"
+                id="username"
+                name="username"
+                placeholder="3~20位字母、数字或汉字"
+                minlength="3"
+                maxlength="20"
+                pattern="[a-zA-Z0-9_一-龥]+"
+                title="用户名仅允许字母、数字、下划线和汉字（3~20位）"
+                autocomplete="username"
+                required
+            >
+        </div>
+
+        <div class="form-group">
+            <label for="password">密码</label>
+            <input
+                type="password"
+                id="password"
+                name="password"
+                placeholder="6位以上，须包含字母和数字"
+                minlength="6"
+                maxlength="128"
+                autocomplete="current-password"
+                required
+            >
+        </div>
+
         <button type="submit" class="btn btn-primary btn-block">登 录</button>
     </form>
-    <div class="login-footer"><p>密码已采用 PBKDF2-SHA256 安全哈希存储</p></div>
+
+    <div class="login-footer">
+        <p>默认账号：<code>admin</code> / 联系管理员获取密码</p>
+    </div>
 </div>
 {% endblock %}
