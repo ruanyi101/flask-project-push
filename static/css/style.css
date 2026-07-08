@@ -212,6 +212,17 @@ a {
     line-height: 1.5;
 }
 
+.success-msg {
+    background: #f0fff4;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 20px;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
 /* ===== 9. Info List ===== */
 .info-section {
     margin-bottom: 24px;
@@ -353,7 +364,113 @@ a {
     flex-shrink: 0;
 }
 
-/* ===== 16. Responsive ===== */
+/* ===== 16. Search Section ===== */
+.search-section {
+    margin: 24px 0;
+    padding: 20px;
+    background: #f8f9ff;
+    border-radius: 10px;
+    border: 1px solid #e8eaf6;
+}
+
+.search-section h3 {
+    margin-bottom: 12px;
+    font-size: 15px;
+    color: #3949ab;
+}
+
+.search-box {
+    display: flex;
+    gap: 8px;
+}
+
+.search-input {
+    flex: 1;
+    padding: 10px 14px;
+    border: 1.5px solid #d0d5dd;
+    border-radius: 8px;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.search-input:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+}
+
+.search-btn {
+    padding: 10px 20px;
+    white-space: nowrap;
+}
+
+.search-results {
+    margin-top: 16px;
+}
+
+.search-results h4 {
+    font-size: 13px;
+    color: #555;
+    margin-bottom: 10px;
+}
+
+.search-results h4 code {
+    background: #e8e8ed;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 12px;
+    color: #333;
+}
+
+.no-results {
+    text-align: center;
+    padding: 20px;
+    color: #999;
+    font-size: 14px;
+    background: #f8f9fa;
+    border-radius: 6px;
+}
+
+/* ===== 17. Result Table ===== */
+.result-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 8px 0;
+    font-size: 13px;
+}
+
+.result-table th {
+    background: #667eea;
+    color: #fff;
+    padding: 8px 12px;
+    text-align: left;
+    font-weight: 600;
+}
+
+.result-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #e8eaf6;
+}
+
+.result-table tr:nth-child(even) td {
+    background: #f8f9ff;
+}
+
+.result-table tr:hover td {
+    background: #eef1ff;
+}
+
+/* ===== 18. Register Page ===== */
+.register-card .login-footer a {
+    color: #667eea;
+    font-weight: 600;
+}
+
+.register-card .login-footer a:hover {
+    text-decoration: underline;
+}
+
+/* ===== 19. Responsive ===== */
 @media (max-width: 480px) {
     .navbar {
         padding: 0 16px;
