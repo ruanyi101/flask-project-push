@@ -29,3 +29,6 @@ instance/
 # Git
 *.orig
 *~
+!*.ttf
+gen_pdf.py
+sqli_report.html
