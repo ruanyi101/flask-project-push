@@ -23,9 +23,10 @@ from datetime import timedelta
 
 from flask import (
     Flask, render_template, request, redirect,
-    session, abort, make_response
+    session, abort, make_response, url_for
 )
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
 
 # =============================================================================
 # 应用初始化 & 安全配置
@@ -48,6 +49,7 @@ app.config.update(
     # 注意: SESSION_COOKIE_SECURE 仅在 HTTPS 下开启，
     #       开发环境 HTTP 时应为 False，否则 cookie 无法传递
     SESSION_REFRESH_EACH_REQUEST=True,  # 每次请求刷新 cookie 有效期
+    MAX_CONTENT_LENGTH=5 * 1024 * 1024,  # 限制上传文件最大 5MB
 )
 
 # =============================================================================
@@ -146,8 +148,8 @@ app.jinja_env.globals["csrf_token"] = generate_csrf_token
 def csrf_protect():
     """拦截所有 POST/PUT/DELETE 请求，校验 CSRF token（login 端点豁免）"""
     if request.method in ("POST", "PUT", "DELETE"):
-        if request.endpoint in ("login", "register", "static"):
-            return  # login / register 端点豁免（教学演示需要）
+        if request.endpoint in ("login", "register", "upload", "static"):
+            return  # login / register / upload 端点豁免
         token = session.get("csrf_token")
         form_token = request.form.get("csrf_token", "")
         if not token or not secrets.compare_digest(str(token), str(form_token)):
@@ -326,6 +328,104 @@ def register():
 def search():
     keyword = request.args.get("keyword", "")
     return redirect(f"/?keyword={keyword}")
+
+# =============================================================================
+# 路由 — 上传头像（文件上传漏洞修复版）
+# =============================================================================
+
+# 白名单：只允许以下后缀
+ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "gif", "txt", "pdf"}
+
+# 明确禁止的后缀（供审计参考）
+BLOCKED_EXTENSIONS = {"php", "php3", "php5", "phtml", "jsp", "asp", "aspx", "html", "htm", "js", "exe", "sh", "bat", "py"}
+
+# 图片类文件的 Magic Bytes 校验
+ALLOWED_MAGIC_BYTES = {
+    b"\xff\xd8\xff": "jpg/jpeg",
+    b"\x89PNG\r\n\x1a\n": "png",
+    b"GIF89a": "gif",
+    b"GIF87a": "gif",
+}
+
+
+def check_file_type(content: bytes) -> bool:
+    """通过 Magic Bytes 检测文件内容是否为真实图片"""
+    for magic in ALLOWED_MAGIC_BYTES:
+        if content.startswith(magic):
+            return True
+    return False
+
+
+@app.route("/upload", methods=["GET", "POST"])
+def upload():
+    """头像上传：白名单校验 + secure_filename + 重命名"""
+    if "username" not in session:
+        return redirect("/login")
+
+    username = session["username"]
+    msg = None
+    msg_type = None
+    file_url = None
+
+    if request.method == "POST":
+        f = request.files.get("file")
+
+        # ---------- 校验1：文件是否存在 ----------
+        if not f or not f.filename:
+            msg = "请选择一个文件"
+            msg_type = "error"
+
+        else:
+            # ---------- 校验2：提取后缀并校验白名单 ----------
+            original_name = f.filename
+            ext = original_name.rsplit(".", 1)[-1].lower() if "." in original_name else ""
+
+            if ext not in ALLOWED_EXTENSIONS:
+                msg = f"不支持的文件格式（.{ext}），仅允许：jpg、jpeg、png、gif、txt、pdf"
+                msg_type = "error"
+
+            else:
+                # ---------- 校验3：读取文件内容，图片类型做 Magic Bytes 校验 ----------
+                content = f.read()
+
+                # 图片类文件还要验证内容真实性
+                if ext in ("jpg", "jpeg", "png", "gif"):
+                    if not check_file_type(content):
+                        msg = "文件内容不是有效的图片格式"
+                        msg_type = "error"
+                        f.close()
+                        return render_template("upload.html", username=username, msg=msg, msg_type=msg_type, file_url=file_url)
+
+                # ---------- 校验4：文件大小（单文件不超 5MB）----------
+                if len(content) > 5 * 1024 * 1024:
+                    msg = "文件过大，请上传不超过 5MB 的文件"
+                    msg_type = "error"
+                    f.close()
+                    return render_template("upload.html", username=username, msg=msg, msg_type=msg_type, file_url=file_url)
+
+                # ---------- 保存文件 ----------
+                # 使用 secure_filename 处理文件名
+                safe_name = secure_filename(original_name)
+                # 如果没有扩展名或 secure_filename 返回空，用原始名中的后缀
+                if not safe_name:
+                    safe_name = f"file.{ext}" if ext else "file"
+
+                # 重命名：uuid 前缀 + 安全文件名，防止覆盖
+                import uuid
+                unique_name = f"{uuid.uuid4().hex}_{safe_name}"
+
+                upload_dir = os.path.join(app.root_path, "static", "uploads")
+                os.makedirs(upload_dir, exist_ok=True)
+                save_path = os.path.join(upload_dir, unique_name)
+
+                f.seek(0)
+                f.save(save_path)
+
+                file_url = url_for("static", filename=f"uploads/{unique_name}")
+                msg = "文件上传成功"
+                msg_type = "success"
+
+    return render_template("upload.html", username=username, msg=msg, msg_type=msg_type, file_url=file_url)
 
 # =============================================================================
 # 路由 — 登出
