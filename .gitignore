@@ -32,3 +32,6 @@ instance/
 !*.ttf
 gen_pdf.py
 sqli_report.html
+data/
+*.ttf
+upload_report.html
