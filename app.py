@@ -496,6 +496,47 @@ def recharge():
 
 
 # =============================================================================
+# 路由 — 动态页面加载（已修复：白名单 + 路径规范化校验）
+# =============================================================================
+
+ALLOWED_PAGES = {"help", "help.html", "about", "about.html", "index.html"}
+
+
+@app.route("/page")
+def dynamic_page():
+    """动态页面加载：白名单校验 + 路径规范化，防止路径穿越"""
+    name = request.args.get("name", "")
+    if not name:
+        return redirect("/")
+
+    # 如果 name 不在白名单中，直接拒绝
+    if name not in ALLOWED_PAGES:
+        page_content = "页面不存在"
+    else:
+        # 固定使用 pages/ 目录，拼接后规范化路径
+        pages_dir = os.path.join(app.root_path, "pages")
+        raw_path = os.path.join(pages_dir, name)
+        real_path = os.path.normpath(raw_path)
+
+        # 双重校验：最终路径必须位于 pages/ 目录内
+        if not real_path.startswith(os.path.normpath(pages_dir) + os.sep) and real_path != os.path.normpath(pages_dir):
+            page_content = "页面不存在"
+        elif os.path.isfile(real_path):
+            with open(real_path, "r", encoding="utf-8") as f:
+                page_content = f.read()
+        else:
+            page_content = "页面不存在"
+
+    # 获取当前用户信息
+    username = session.get("username")
+    user = None
+    if username and username in USERS:
+        user = safe_user_info(USERS[username])
+
+    return render_template("index.html", user=user, page_content=page_content)
+
+
+# =============================================================================
 # 路由 — 登出
 # =============================================================================
 
