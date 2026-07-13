@@ -35,3 +35,6 @@ sqli_report.html
 data/
 *.ttf
 upload_report.html
+gen_docx.py
+inclusion_report.html
+static/css/splash.css
