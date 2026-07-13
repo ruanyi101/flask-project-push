@@ -66,17 +66,18 @@ def init_db():
         username TEXT UNIQUE NOT NULL,
         password TEXT NOT NULL,
         email TEXT,
-        phone TEXT
+        phone TEXT,
+        balance REAL DEFAULT 0
     )""")
 
     # 插入默认用户 — 使用参数化查询
     default_users = [
-        ("admin", "admin123", "admin@example.com", "13800138000"),
-        ("alice", "alice2025", "alice@example.com", "13900139001"),
+        ("admin", "admin123", "admin@example.com", "13800138000", 99999),
+        ("alice", "alice2025", "alice@example.com", "13900139001", 100),
     ]
-    for u, p, e, ph in default_users:
-        sql = "INSERT OR IGNORE INTO users (username, password, email, phone) VALUES (?, ?, ?, ?)"
-        c.execute(sql, (u, p, e, ph))
+    for u, p, e, ph, b in default_users:
+        sql = "INSERT OR IGNORE INTO users (username, password, email, phone, balance) VALUES (?, ?, ?, ?, ?)"
+        c.execute(sql, (u, p, e, ph, b))
 
     conn.commit()
     conn.close()
@@ -148,7 +149,7 @@ app.jinja_env.globals["csrf_token"] = generate_csrf_token
 def csrf_protect():
     """拦截所有 POST/PUT/DELETE 请求，校验 CSRF token（login 端点豁免）"""
     if request.method in ("POST", "PUT", "DELETE"):
-        if request.endpoint in ("login", "register", "upload", "static"):
+        if request.endpoint in ("login", "register", "upload", "recharge", "static"):
             return  # login / register / upload 端点豁免
         token = session.get("csrf_token")
         form_token = request.form.get("csrf_token", "")
@@ -426,6 +427,73 @@ def upload():
                 msg_type = "success"
 
     return render_template("upload.html", username=username, msg=msg, msg_type=msg_type, file_url=file_url)
+
+
+# =============================================================================
+# 路由 — 个人中心（使用参数化查询 + 仅查看自己的资料）
+# =============================================================================
+
+
+@app.route("/profile")
+def profile():
+    """个人中心：根据当前登录用户显示个人资料"""
+    current_user = session.get("username")
+    if not current_user:
+        return redirect("/login")
+
+    conn = sqlite3.connect("data/users.db")
+    c = conn.cursor()
+    c.execute("SELECT id, username, email, phone, balance FROM users WHERE username = ?", (current_user,))
+    user = c.fetchone()
+    conn.close()
+
+    if not user:
+        return "用户不存在", 404
+
+    msg = request.args.get("msg", "")
+    return render_template("profile.html",
+                           user_id=user[0],
+                           username=user[1],
+                           email=user[2],
+                           phone=user[3],
+                           balance=user[4],
+                           msg=msg)
+
+
+# =============================================================================
+# 路由 — 充值（参数化查询 + amount 正数校验）
+# =============================================================================
+
+
+@app.route("/recharge", methods=["POST"])
+def recharge():
+    """充值：仅允许正数充值，参数化查询防御 SQL 注入"""
+    current_user = session.get("username")
+    if not current_user:
+        return redirect("/login")
+
+    amount_str = request.form.get("amount", "0")
+
+    # 校验 amount 是否为正数
+    try:
+        amount = float(amount_str)
+    except ValueError:
+        return "金额格式无效，请输入数字", 400
+
+    if amount <= 0:
+        return "充值金额必须为正数", 400
+
+    if amount > 999999:
+        return "单次充值金额不能超过 999999", 400
+
+    conn = sqlite3.connect("data/users.db")
+    c = conn.cursor()
+    c.execute("UPDATE users SET balance = balance + ? WHERE username = ?", (amount, current_user))
+    conn.commit()
+    conn.close()
+
+    return redirect("/profile?msg=充值成功")
+
 
 # =============================================================================
 # 路由 — 登出
