@@ -470,7 +470,84 @@ a {
     text-decoration: underline;
 }
 
-/* ===== 19. Responsive ===== */
+/* ===== 19. Upload Page ===== */
+.upload-card .preview-section {
+    margin: 16px 0;
+    padding: 16px;
+    background: #f8f9ff;
+    border-radius: 10px;
+    border: 1px solid #e8eaf6;
+    text-align: center;
+}
+
+.upload-preview {
+    max-width: 200px;
+    max-height: 200px;
+    border-radius: 50%;
+    border: 3px solid #667eea;
+    margin: 12px 0;
+    object-fit: cover;
+}
+
+.file-link {
+    font-size: 12px;
+    color: #666;
+    word-break: break-all;
+}
+
+.file-input {
+    padding: 10px;
+    border: 1.5px solid #d0d5dd;
+    border-radius: 8px;
+    width: 100%;
+    background: #fafafa;
+    font-size: 14px;
+}
+
+/* ===== 20. Dynamic Page Content ===== */
+.dynamic-page {
+    margin: 24px 0;
+    padding: 20px;
+    background: #fff;
+    border-radius: 10px;
+    border: 1px solid #e8eaf6;
+}
+
+.page-content h1 {
+    font-size: 22px;
+    color: #1a1a2e;
+    margin-bottom: 16px;
+}
+
+.page-content h2 {
+    font-size: 17px;
+    color: #3949ab;
+    margin: 16px 0 8px 0;
+    border: none;
+    padding: 0;
+}
+
+.page-content h3 {
+    font-size: 14px;
+    color: #333;
+    margin: 12px 0 4px 0;
+}
+
+.page-content p {
+    margin-bottom: 8px;
+    color: #444;
+}
+
+.page-content ul {
+    margin: 8px 0 8px 20px;
+}
+
+.page-content li {
+    margin-bottom: 4px;
+    color: #555;
+}
+
+/* ===== 21. Responsive ===== */
 @media (max-width: 480px) {
     .navbar {
         padding: 0 16px;
