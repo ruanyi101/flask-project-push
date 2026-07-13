@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>用户管理系统</title>
     <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/splash.css">
 </head>
 <body>
     <nav class="navbar">
@@ -23,6 +24,9 @@
             {% endif %}
         </div>
     </nav>
+
+    {% block splash %}{% endblock %}
+
     <main class="container">
         {% block content %}{% endblock %}
     </main>
