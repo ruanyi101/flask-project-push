@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+    <h2>👤 个人中心</h2>
+
+    {% if msg %}
+        <div class="success-msg">{{ msg }}</div>
+    {% endif %}
+
+    <div class="info-section">
+        <h3>用户信息</h3>
+        <ul class="info-list">
+            <li><span class="info-label">ID</span><span class="info-value">{{ user_id }}</span></li>
+            <li><span class="info-label">用户名</span><span class="info-value">{{ username }}</span></li>
+            <li><span class="info-label">邮箱</span><span class="info-value">{{ email }}</span></li>
+            <li><span class="info-label">手机</span><span class="info-value">{{ phone }}</span></li>
+            <li><span class="info-label">余额</span><span class="info-value">{{ balance }} 元</span></li>
+        </ul>
+    </div>
+
+    <div class="search-section">
+        <h3>💰 充值</h3>
+        <form method="post" action="/recharge" class="search-form">
+            <div class="form-group">
+                <label for="amount">充值金额</label>
+                <input type="number" id="amount" name="amount" class="search-input" placeholder="输入充值金额（正数）" min="0.01" step="0.01" required>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">充 值</button>
+        </form>
+    </div>
+</div>
+{% endblock %}
