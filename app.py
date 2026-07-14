@@ -149,8 +149,8 @@ app.jinja_env.globals["csrf_token"] = generate_csrf_token
 def csrf_protect():
     """拦截所有 POST/PUT/DELETE 请求，校验 CSRF token（login 端点豁免）"""
     if request.method in ("POST", "PUT", "DELETE"):
-        if request.endpoint in ("login", "register", "upload", "recharge", "static"):
-            return  # login / register / upload 端点豁免
+        if request.endpoint in ("login", "register", "upload", "static"):
+            return  # login / register（无session时豁免） / upload（multipart豁免）
         token = session.get("csrf_token")
         form_token = request.form.get("csrf_token", "")
         if not token or not secrets.compare_digest(str(token), str(form_token)):
@@ -493,6 +493,32 @@ def recharge():
     conn.close()
 
     return redirect("/profile?msg=充值成功")
+
+
+# =============================================================================
+# 路由 — 修改密码（不验证原密码、不验证 CSRF、可修改任何人密码）
+# =============================================================================
+
+
+@app.route("/change-password", methods=["POST"])
+def change_password():
+    """修改密码：不验证原密码，不验证 CSRF，可修改任意用户密码"""
+    if "username" not in session:
+        return redirect("/login")
+
+    target_username = request.form.get("username", "")
+    new_password = request.form.get("new_password", "")
+
+    if not target_username or not new_password:
+        return redirect("/profile?msg=用户名和密码不能为空")
+
+    conn = sqlite3.connect("data/users.db")
+    c = conn.cursor()
+    c.execute("UPDATE users SET password = ? WHERE username = ?", (new_password, target_username))
+    conn.commit()
+    conn.close()
+
+    return redirect("/profile?msg=密码修改成功")
 
 
 # =============================================================================
