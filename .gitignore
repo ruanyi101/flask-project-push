@@ -38,3 +38,4 @@ upload_report.html
 gen_docx.py
 inclusion_report.html
 static/css/splash.css
+gen_csrf_docx.py
