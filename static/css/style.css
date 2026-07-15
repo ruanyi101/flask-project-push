@@ -547,7 +547,23 @@ a {
     color: #555;
 }
 
-/* ===== 21. Responsive ===== */
+/* ===== 21. Fetch URL Result ===== */
+.fetch-result {
+    background: #1e1e2e;
+    color: #cdd6f4;
+    padding: 12px 16px;
+    border-radius: 6px;
+    font-size: 9pt;
+    line-height: 1.5;
+    max-height: 400px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+    margin: 8px 0;
+    font-family: 'Courier New', monospace;
+}
+
+/* ===== 22. Responsive ===== */
 @media (max-width: 480px) {
     .navbar {
         padding: 0 16px;
