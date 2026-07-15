@@ -17,8 +17,12 @@
 import os
 import re
 import secrets
+import socket
 import sqlite3
 import time
+import urllib.request
+import urllib.error
+import urllib.parse
 from datetime import timedelta
 
 from flask import (
@@ -149,7 +153,7 @@ app.jinja_env.globals["csrf_token"] = generate_csrf_token
 def csrf_protect():
     """拦截所有 POST/PUT/DELETE 请求，校验 CSRF token（login 端点豁免）"""
     if request.method in ("POST", "PUT", "DELETE"):
-        if request.endpoint in ("login", "register", "upload", "static"):
+        if request.endpoint in ("login", "register", "upload", "fetch_url", "static"):
             return  # login / register（无session时豁免） / upload（multipart豁免）
         token = session.get("csrf_token")
         form_token = request.form.get("csrf_token", "")
@@ -560,6 +564,121 @@ def dynamic_page():
         user = safe_user_info(USERS[username])
 
     return render_template("index.html", user=user, page_content=page_content)
+
+
+# =============================================================================
+# 路由 — URL 抓取（已修复：仅允许 http/https、禁止内网、限制重定向）
+# =============================================================================
+
+ALLOWED_PROTOCOLS = ("http://", "https://")
+PRIVATE_IP_PREFIXES = ("127.", "10.", "172.16.", "172.17.", "172.18.", "172.19.",
+                       "172.20.", "172.21.", "172.22.", "172.23.", "172.24.",
+                       "172.25.", "172.26.", "172.27.", "172.28.", "172.29.",
+                       "172.30.", "172.31.", "192.168.", "0.", "169.254.")
+
+
+def is_private_ip(ip: str) -> bool:
+    """检查 IP 是否为内网地址"""
+    if ip == "::1" or ip == "localhost":
+        return True
+    for prefix in PRIVATE_IP_PREFIXES:
+        if ip.startswith(prefix):
+            return True
+    return False
+
+
+def validate_url_target(url: str) -> str | None:
+    """校验 URL 安全性，返回 None 表示安全，返回字符串表示错误信息"""
+    # 检查协议
+    if not url.lower().startswith(ALLOWED_PROTOCOLS):
+        return "仅允许 http 和 https 协议的 URL"
+
+    # 解析主机名
+    try:
+        parsed = urllib.parse.urlparse(url)
+        hostname = parsed.hostname
+        if not hostname:
+            return "URL 格式无效"
+        # 解析 IP 地址
+        ip = socket.gethostbyname(hostname)
+        if is_private_ip(ip):
+            return "不允许访问内网地址"
+    except socket.gaierror:
+        return "无法解析目标域名"
+    except Exception:
+        return "URL 格式无效"
+    return None
+
+
+@app.route("/fetch-url", methods=["POST"])
+def fetch_url():
+    """URL 抓取：仅允许 http/https，禁止内网地址，限制重定向"""
+    if "username" not in session:
+        return redirect("/login")
+
+    target_url = request.form.get("url", "").strip()
+    if not target_url:
+        return redirect("/")
+
+    # SSRF 安全检查
+    validation_error = validate_url_target(target_url)
+    if validation_error:
+        username = session.get("username")
+        user = None
+        if username and username in USERS:
+            user = safe_user_info(USERS[username])
+        return render_template("index.html", user=user,
+                               fetch_url=target_url,
+                               fetch_error=validation_error)
+
+    status_code = None
+    content = ""
+    error_msg = None
+
+    try:
+        req = urllib.request.Request(target_url,
+                                     headers={"User-Agent": "Mozilla/5.0"})
+        # 限制重定向次数为 3 次，防止重定向到内网
+        resp = urllib.request.urlopen(req, timeout=10)
+
+        # 检查最终重定向后的地址
+        final_url = resp.geturl()
+        if final_url != target_url:
+            redirect_check = validate_url_target(final_url)
+            if redirect_check:
+                resp.close()
+                error_msg = "重定向目标地址不允许访问"
+                username = session.get("username")
+                user = None
+                if username and username in USERS:
+                    user = safe_user_info(USERS[username])
+                return render_template("index.html", user=user,
+                                       fetch_url=target_url,
+                                       fetch_error=error_msg)
+
+        status_code = resp.status
+        raw = resp.read()
+        content = raw.decode("utf-8", errors="replace")[:5000]
+        resp.close()
+    except urllib.error.HTTPError as e:
+        status_code = e.code
+        content = str(e.read()[:2000])
+    except urllib.error.URLError as e:
+        error_msg = f"请求失败：{e.reason}"
+    except Exception as e:
+        error_msg = "请求失败，请检查 URL 是否正确"
+
+    # 获取用户信息
+    username = session.get("username")
+    user = None
+    if username and username in USERS:
+        user = safe_user_info(USERS[username])
+
+    return render_template("index.html", user=user,
+                           fetch_url=target_url,
+                           fetch_status=status_code,
+                           fetch_content=content,
+                           fetch_error=error_msg)
 
 
 # =============================================================================
