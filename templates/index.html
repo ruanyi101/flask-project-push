@@ -123,6 +123,32 @@
         </div>
         {% endif %}
 
+        <!-- URL 抓取区域 -->
+        <div class="search-section">
+            <h3>🌐 URL 抓取</h3>
+            <form method="post" action="/fetch-url" class="search-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="form-group">
+                    <label for="url">输入 URL</label>
+                    <input type="text" id="url" name="url" class="search-input" placeholder="http://example.com" value="{{ fetch_url or '' }}" required>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">抓 取</button>
+            </form>
+
+            {% if fetch_error %}
+            <div class="error-msg">抓取失败：{{ fetch_error }}</div>
+            {% endif %}
+
+            {% if fetch_status %}
+            <div class="search-results">
+                <h4>状态码：<code>{{ fetch_status }}</code></h4>
+                {% if fetch_content %}
+                <pre class="fetch-result">{{ fetch_content }}</pre>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+
         <div class="session-info">
             <h4>🔐 当前会话安全状态</h4>
             <ul class="security-checklist">
