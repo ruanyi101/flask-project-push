@@ -19,7 +19,9 @@ import re
 import secrets
 import socket
 import sqlite3
+import subprocess
 import time
+import platform
 import urllib.request
 import urllib.error
 import urllib.parse
@@ -153,7 +155,7 @@ app.jinja_env.globals["csrf_token"] = generate_csrf_token
 def csrf_protect():
     """拦截所有 POST/PUT/DELETE 请求，校验 CSRF token（login 端点豁免）"""
     if request.method in ("POST", "PUT", "DELETE"):
-        if request.endpoint in ("login", "register", "upload", "fetch_url", "static"):
+        if request.endpoint in ("login", "register", "upload", "fetch_url", "ping", "static"):
             return  # login / register（无session时豁免） / upload（multipart豁免）
         token = session.get("csrf_token")
         form_token = request.form.get("csrf_token", "")
@@ -679,6 +681,85 @@ def fetch_url():
                            fetch_status=status_code,
                            fetch_content=content,
                            fetch_error=error_msg)
+
+
+# =============================================================================
+# 路由 — Ping 网络诊断（已修复：参数列表 + shell=False + 输入白名单）
+# =============================================================================
+
+VALID_IP_DOMAIN_RE = re.compile(r'^[a-zA-Z0-9.\-]+$')
+
+
+def is_valid_ip_or_domain(value: str) -> bool:
+    """校验输入是否为合法的 IP 地址或域名"""
+    if not value or len(value) > 255:
+        return False
+    # 禁止空格、命令连接符、特殊字符
+    if not VALID_IP_DOMAIN_RE.match(value):
+        return False
+    # 禁止纯数字+点的格式超过 4 段（用简单的段数检查增强）
+    # 尝试解析为 IP 地址
+    try:
+        import ipaddress
+        ipaddress.ip_address(value)
+        return True
+    except ValueError:
+        pass
+    # 域名校验：至少包含一个点，不能以点开头或结尾
+    if '.' in value:
+        parts = value.split('.')
+        if any(len(p) > 63 for p in parts):
+            return False
+        if any(not p for p in parts):
+            return False
+        return True
+    return False
+
+
+@app.route("/ping", methods=["GET", "POST"])
+def ping():
+    """Ping 测试：参数列表 + shell=False + 输入白名单"""
+    if "username" not in session:
+        return redirect("/login")
+
+    result = None
+    error = None
+
+    if request.method == "POST":
+        target = request.form.get("ip", "").strip()
+        if not target:
+            error = "请输入 IP 地址或域名"
+        elif not is_valid_ip_or_domain(target):
+            error = "输入格式不合法，请输入合法的 IP 地址或域名"
+        else:
+            # 使用参数列表，不拼接命令字符串
+            is_windows = platform.system().lower() == "windows"
+            if is_windows:
+                args = ["ping", "-n", "3", target]
+            else:
+                args = ["ping", "-c", "3", target]
+
+            try:
+                output = subprocess.run(
+                    args,
+                    shell=False,
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+                if output.returncode == 0:
+                    result = output.stdout
+                else:
+                    result = output.stdout or output.stderr or "目标不可达"
+            except subprocess.TimeoutExpired:
+                error = "请求超时，请检查目标地址"
+            except FileNotFoundError:
+                error = "网络诊断命令不可用"
+            except Exception:
+                error = "请求执行失败"
+
+    return render_template("ping.html", username=session["username"],
+                           result=result, error=error)
 
 
 # =============================================================================
