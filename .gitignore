@@ -40,3 +40,4 @@ inclusion_report.html
 static/css/splash.css
 gen_csrf_docx.py
 gen_ssrf_docx.py
+gen_cmd_docx.py
