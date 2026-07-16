@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+    <h2>📡 Ping 网络诊断</h2>
+    <p class="muted">欢迎 {{ username }}，输入 IP 地址或域名进行 Ping 测试。</p>
+
+    <form method="post" action="/ping" class="search-form">
+        <div class="search-box">
+            <input type="text" name="ip" class="search-input" placeholder="输入 IP 地址或域名" required>
+            <button type="submit" class="btn btn-primary search-btn">Ping</button>
+        </div>
+    </form>
+
+    {% if error %}
+        <div class="error-msg">{{ error }}</div>
+    {% endif %}
+
+    {% if result %}
+        <div class="ping-result">
+            <div class="ping-header">执行结果</div>
+            <pre class="ping-output">{{ result }}</pre>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
