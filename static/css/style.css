@@ -563,7 +563,37 @@ a {
     font-family: 'Courier New', monospace;
 }
 
-/* ===== 22. Responsive ===== */
+/* ===== 22. Ping Console ===== */
+.ping-result {
+    margin-top: 16px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #333;
+}
+
+.ping-header {
+    background: #1a1a1a;
+    color: #ccc;
+    padding: 8px 14px;
+    font-size: 12px;
+    border-bottom: 1px solid #333;
+}
+
+.ping-output {
+    background: #0d0d0d;
+    color: #00ff00;
+    padding: 14px 16px;
+    font-size: 10pt;
+    line-height: 1.5;
+    font-family: 'Courier New', monospace;
+    white-space: pre-wrap;
+    word-break: break-all;
+    margin: 0;
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+/* ===== 23. Responsive ===== */
 @media (max-width: 480px) {
     .navbar {
         padding: 0 16px;
