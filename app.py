@@ -21,7 +21,9 @@ import socket
 import sqlite3
 import subprocess
 import time
+import json
 import platform
+import xml.parsers.expat
 import urllib.request
 import urllib.error
 import urllib.parse
@@ -155,7 +157,7 @@ app.jinja_env.globals["csrf_token"] = generate_csrf_token
 def csrf_protect():
     """拦截所有 POST/PUT/DELETE 请求，校验 CSRF token（login 端点豁免）"""
     if request.method in ("POST", "PUT", "DELETE"):
-        if request.endpoint in ("login", "register", "upload", "fetch_url", "ping", "static"):
+        if request.endpoint in ("login", "register", "upload", "fetch_url", "ping", "xml_import", "static"):
             return  # login / register（无session时豁免） / upload（multipart豁免）
         token = session.get("csrf_token")
         form_token = request.form.get("csrf_token", "")
@@ -760,6 +762,90 @@ def ping():
 
     return render_template("ping.html", username=session["username"],
                            result=result, error=error)
+
+
+# =============================================================================
+# 路由 — XML 导入（已修复：限制实体文件读取范围）
+# =============================================================================
+
+# 允许 XML 实体读取的文件目录
+XML_DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "xml_data")
+
+
+@app.route("/xml-import", methods=["GET", "POST"])
+def xml_import():
+    """XML 导入：限制实体引用的文件读取范围，防止 XXE"""
+    if "username" not in session:
+        return redirect("/login")
+
+    result = None
+    error = None
+    xml_data = ""
+
+    if request.method == "POST":
+        xml_data = request.form.get("xml_data", "").strip()
+        if xml_data:
+            try:
+                # 1. 提取所有 ENTITY 定义中的 SYSTEM 文件路径
+                entities = re.findall(r'<!ENTITY\s+\S+\s+SYSTEM\s+"([^"]+)"', xml_data)
+
+                # 2. 校验并读取文件内容替换实体引用
+                processed = xml_data
+                for filepath in entities:
+                    # 处理 file:// 协议路径
+                    actual_path = filepath
+                    if actual_path.startswith("file://"):
+                        actual_path = actual_path[7:]
+
+                    # 路径安全检查：禁止绝对路径和路径穿越
+                    if os.path.isabs(actual_path):
+                        error = f"不允许使用绝对路径: {filepath}"
+                        break
+
+                    # 规范化路径后检查是否在允许的 xml_data 目录内
+                    safe_path = os.path.normpath(os.path.join(XML_DATA_DIR, actual_path))
+                    if not safe_path.startswith(os.path.normpath(XML_DATA_DIR) + os.sep) \
+                            and safe_path != os.path.normpath(XML_DATA_DIR):
+                        error = f"不允许访问指定目录外的文件: {filepath}"
+                        break
+
+                    # 检查文件是否存在
+                    if not os.path.isfile(safe_path):
+                        error = f"文件不存在: {filepath}"
+                        break
+
+                    try:
+                        with open(safe_path, "r", encoding="utf-8") as f:
+                            file_content = f.read()
+                        for ent_match in re.finditer(r'<!ENTITY\s+(\S+)\s+SYSTEM\s+"[^"]+"', processed):
+                            ent_name = ent_match.group(1)
+                            processed = processed.replace(f"&{ent_name};", file_content)
+                    except Exception:
+                        error = f"读取文件失败: {filepath}"
+                        break
+
+                if error:
+                    return render_template("xml_import.html", username=session["username"],
+                                           result=None, error=error, xml_data=xml_data)
+
+                # 3. 解析替换后的 XML，提取 user 数据
+                users = []
+                for name_match in re.finditer(r'<name>([^<]+)</name>', processed):
+                    users.append({"name": name_match.group(1)})
+                for i, email_match in enumerate(re.finditer(r'<email>([^<]+)</email>', processed)):
+                    if i < len(users):
+                        users[i]["email"] = email_match.group(1)
+
+                if users:
+                    result = json.dumps(users, ensure_ascii=False, indent=2)
+                else:
+                    error = "未找到 user 数据"
+
+            except Exception as e:
+                error = f"解析失败"
+
+    return render_template("xml_import.html", username=session["username"],
+                           result=result, error=error, xml_data=xml_data)
 
 
 # =============================================================================
