@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+    <h2>📄 XML 数据导入</h2>
+    <p class="muted">欢迎 {{ username }}，输入 XML 数据进行解析。</p>
+
+    <form method="post" action="/xml-import" class="search-form">
+        <div class="form-group">
+            <label for="xml_data">XML 数据</label>
+            <textarea id="xml_data" name="xml_data" class="xml-input" rows="12" placeholder="输入 XML 内容">{{ xml_data }}</textarea>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">导 入</button>
+    </form>
+
+    {% if error %}
+        <div class="error-msg">{{ error }}</div>
+    {% endif %}
+
+    {% if result %}
+        <div class="ping-result">
+            <div class="ping-header">解析结果</div>
+            <pre class="xml-output">{{ result }}</pre>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
