@@ -593,7 +593,41 @@ a {
     overflow-y: auto;
 }
 
-/* ===== 23. Responsive ===== */
+/* ===== 23. XML Import ===== */
+.xml-input {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1.5px solid #d0d5dd;
+    border-radius: 8px;
+    font-size: 13px;
+    font-family: 'Courier New', monospace;
+    outline: none;
+    background: #fafafa;
+    resize: vertical;
+    line-height: 1.5;
+}
+
+.xml-input:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+}
+
+.xml-output {
+    background: #1e1e2e;
+    color: #cdd6f4;
+    padding: 12px 16px;
+    border-radius: 6px;
+    font-size: 9pt;
+    line-height: 1.5;
+    font-family: 'Courier New', monospace;
+    white-space: pre-wrap;
+    word-break: break-all;
+    margin: 0;
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+/* ===== 24. Responsive ===== */
 @media (max-width: 480px) {
     .navbar {
         padding: 0 16px;
